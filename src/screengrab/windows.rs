@@ -9,13 +9,17 @@ use winapi::{
             BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits,
             SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, SRCCOPY,
         },
-        winuser::{GetDC, ReleaseDC},
+        winuser::{
+            GetDC, GetSystemMetrics, ReleaseDC, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
+            SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
+        },
     },
 };
 
 // take a screenshot
 pub fn snap() -> Image {
-    let ss = Screenshot::new(0, 0, 1920, 1080);
+    let rect = get_virtual_screen_bounds();
+    let ss = Screenshot::new(rect.0, rect.1, rect.2, rect.3);
 
     Image {
         dimensions: (ss.rect.2 as u32, ss.rect.3 as u32),
@@ -23,6 +27,17 @@ pub fn snap() -> Image {
     }
 }
 
+// get the combined size of the all the monitors
+fn get_virtual_screen_bounds() -> (i32, i32, i32, i32) {
+    return (
+        unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) },
+        unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) },
+        unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) },
+        unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) },
+    );
+}
+
+// screenshot taking implementation
 #[derive(Debug)]
 struct Screenshot {
     h_bitmap: HBITMAPWrapper,
