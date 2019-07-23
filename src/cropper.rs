@@ -14,7 +14,7 @@ use glium::{
     texture::{RawImage2d, SrgbTexture2d, TextureCreationError},
     uniform,
     vertex::{BufferCreationError as VboCreationError, VertexBuffer},
-    Display, DrawError, Surface, SwapBuffersError,
+    Blend, Display, DrawError, DrawParameters, Surface, SwapBuffersError,
 };
 
 // custom error type
@@ -32,29 +32,31 @@ custom_error! { pub CropperError
 #[derive(Debug, Copy, Clone)]
 struct Vertex {
     pos: [f32; 2],
-    uv: [f32; 2],
 }
 
-implement_vertex!(Vertex, pos, uv);
+implement_vertex!(Vertex, pos);
 
 // structure holding the programs we use
 struct CropperPrograms {
     full_quad_tex: Program,
+    sub_quad_color: Program,
 }
 
 // structure holding everything else we'll need
-struct Cropper {
+struct Cropper<T> {
+    snap: T,
+
     events_loop: EventsLoop,
     display: Display,
-    snap: SrgbTexture2d,
+    snap_tex: SrgbTexture2d,
     vbo: VertexBuffer<Vertex>,
     index_buffer: IndexBuffer<u16>,
     programs: CropperPrograms,
 }
 
 // where we do the cool stuff
-impl Cropper {
-    fn new(snap: impl Screenshot) -> Result<Cropper, CropperError> {
+impl<T: Screenshot> Cropper<T> {
+    fn new(snap: T) -> Result<Cropper<T>, CropperError> {
         let events_loop = EventsLoop::new();
 
         let display = Display::new(
@@ -78,31 +80,21 @@ impl Cropper {
             events_loop,
 
             // create screenshot texture
-            snap: SrgbTexture2d::new(
+            snap_tex: SrgbTexture2d::new(
                 &display,
                 RawImage2d::from_raw_rgb(snap.data().into(), snap.dimensions()),
             )?,
+
+            snap,
 
             // create a fullscreen quad VBO
             vbo: VertexBuffer::new(
                 &display,
                 &[
-                    Vertex {
-                        pos: [-1.0, -1.0],
-                        uv: [0.0, 0.0],
-                    },
-                    Vertex {
-                        pos: [1.0, -1.0],
-                        uv: [1.0, 0.0],
-                    },
-                    Vertex {
-                        pos: [-1.0, 1.0],
-                        uv: [0.0, 1.0],
-                    },
-                    Vertex {
-                        pos: [1.0, 1.0],
-                        uv: [1.0, 1.0],
-                    },
+                    Vertex { pos: [0.0, 0.0] },
+                    Vertex { pos: [1.0, 0.0] },
+                    Vertex { pos: [0.0, 1.0] },
+                    Vertex { pos: [1.0, 1.0] },
                 ],
             )?,
 
@@ -121,6 +113,13 @@ impl Cropper {
                         fragment: include_str!("shaders/full_quad_tex/140.fs"),
                     }
                 )?,
+
+                sub_quad_color: program!(&display,
+                    140 => {
+                        vertex: include_str!("shaders/sub_quad_color/140.vs"),
+                        fragment: include_str!("shaders/sub_quad_color/140.fs"),
+                    }
+                )?,
             },
 
             // this must be given last so that it doesn't take ownership before
@@ -129,9 +128,18 @@ impl Cropper {
     }
 
     fn render(&mut self, frame: &mut glium::Frame) -> Result<(), CropperError> {
+        let draw_params = DrawParameters {
+            blend: Blend::alpha_blending(),
+            ..Default::default()
+        };
+
+        // clear to black
+        frame.clear_color(0.0, 0.0, 0.0, 1.0);
+
+        // base pass
         let uniforms = uniform! {
-            tex: &self.snap,
-            dim: 0.5f32,
+            tex: &self.snap_tex,
+            opacity: 0.5f32,
         };
 
         frame.draw(
@@ -139,8 +147,29 @@ impl Cropper {
             &self.index_buffer,
             &self.programs.full_quad_tex,
             &uniforms,
-            &Default::default(),
+            &draw_params,
         )?;
+
+        // windows pass
+        for window in self.snap.windows() {
+            let uniforms = uniform! {
+                bounds: [
+                    (window.content_bounds.x as f32) / (self.snap.dimensions().0 as f32),
+                    1.0 - (window.content_bounds.y as f32) / (self.snap.dimensions().1 as f32),
+                    (window.content_bounds.w as f32) / (self.snap.dimensions().0 as f32),
+                    -(window.content_bounds.h as f32) / (self.snap.dimensions().1 as f32)
+                ],
+                color: [1.0f32, 1.0, 1.0, 0.1],
+            };
+
+            frame.draw(
+                &self.vbo,
+                &self.index_buffer,
+                &self.programs.sub_quad_color,
+                &uniforms,
+                &draw_params,
+            )?;
+        }
 
         Ok(())
     }

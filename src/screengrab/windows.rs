@@ -1,17 +1,22 @@
-use super::{Bounds, Screenshot};
+use super::{Bounds, Rectangle, Screenshot, Window};
 
-use std::{mem::size_of, ptr::null_mut};
+use std::{
+    mem::{size_of, MaybeUninit},
+    ptr::null_mut,
+};
 use winapi::{
     ctypes::c_void,
-    shared::windef::{HBITMAP, HDC},
+    shared::minwindef::{BOOL, LPARAM},
+    shared::windef::{HBITMAP, HDC, HWND},
     um::{
         wingdi::{
             BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits,
             SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, SRCCOPY,
         },
         winuser::{
-            GetDC, GetSystemMetrics, ReleaseDC, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN,
-            SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
+            EnumWindows, GetDC, GetSystemMetrics, GetWindowInfo, IsWindowVisible, ReleaseDC,
+            SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
+            WINDOWINFO, WS_POPUP,
         },
     },
 };
@@ -20,19 +25,19 @@ use winapi::{
 pub fn snap(bounds: Bounds) -> impl Screenshot {
     let (x, y, w, h) = match bounds {
         Bounds::FullScreen => get_full_screen_bounds(),
-        Bounds::Area(x, y, w, h) => (x, y, w, h),
+        Bounds::Area(rect) => (rect.x as i32, rect.y as i32, rect.w as i32, rect.h as i32),
     };
 
-    ScreenshotImpl::new(x as i32, y as i32, w as i32, h as i32)
+    ScreenshotImpl::new(x, y, w, h)
 }
 
 // get the combined size of the all the monitors
-fn get_full_screen_bounds() -> (u32, u32, u32, u32) {
+fn get_full_screen_bounds() -> (i32, i32, i32, i32) {
     return (
-        unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) } as u32,
-        unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) } as u32,
-        unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) } as u32,
-        unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) } as u32,
+        unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) },
+        unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) },
+        unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) },
+        unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) },
     );
 }
 
@@ -46,6 +51,7 @@ struct ScreenshotImpl {
     rect: (i32, i32, i32, i32),
 
     data: Vec<u8>,
+    windows: Vec<Window>,
 }
 
 impl Screenshot for ScreenshotImpl {
@@ -55,6 +61,10 @@ impl Screenshot for ScreenshotImpl {
 
     fn dimensions(&self) -> (u32, u32) {
         (self.rect.2 as u32, self.rect.3 as u32)
+    }
+
+    fn windows(&self) -> &[Window] {
+        &self.windows
     }
 }
 
@@ -107,6 +117,52 @@ impl ScreenshotImpl {
             pixel.swap(0, 2);
         }
 
+        // get all windows now
+        let mut windows = Vec::new();
+
+        // function that iterates over windows
+        pub extern "system" fn enum_windows_proc_callback(wnd: HWND, p: LPARAM) -> BOOL {
+            if unsafe { IsWindowVisible(wnd) } != 0 {
+                let mut info: WINDOWINFO = unsafe { MaybeUninit::uninit().assume_init() };
+
+                info.cbSize = size_of::<WINDOWINFO>() as u32;
+
+                unsafe {
+                    GetWindowInfo(wnd, &mut info);
+                }
+
+                // ignore WS_POPUP windows
+                if info.dwStyle & WS_POPUP == 0 {
+                    let windows = unsafe { (p as *mut Vec<_>).as_mut() }.unwrap();
+
+                    windows.push(Window {
+                        bounds: Rectangle {
+                            x: info.rcWindow.left as u32,
+                            y: info.rcWindow.top as u32,
+                            w: (info.rcWindow.right - info.rcWindow.left) as u32,
+                            h: (info.rcWindow.bottom - info.rcWindow.top) as u32,
+                        },
+
+                        content_bounds: Rectangle {
+                            x: info.rcClient.left as u32,
+                            y: info.rcClient.top as u32,
+                            w: (info.rcClient.right - info.rcClient.left) as u32,
+                            h: (info.rcClient.bottom - info.rcClient.top) as u32,
+                        },
+                    });
+                }
+            }
+
+            1
+        }
+
+        unsafe {
+            EnumWindows(
+                Some(enum_windows_proc_callback),
+                &mut windows as *mut Vec<_> as LPARAM,
+            );
+        }
+
         ScreenshotImpl {
             h_bitmap: h_bitmap.into(),
             h_screen: h_screen.into(),
@@ -114,6 +170,7 @@ impl ScreenshotImpl {
 
             rect: (x, y, w, h),
 
+            windows,
             data,
         }
     }

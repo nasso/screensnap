@@ -606,7 +606,7 @@ version = "0.1.0"
 dependencies = [
  "custom_error 1.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glium 0.25.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "winapi 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winapi 0.3.7 (git+https://github.com/retep998/winapi-rs.git?branch=0.3)",
 ]
 
 [[package]]
@@ -757,11 +757,25 @@ dependencies = [
 [[package]]
 name = "winapi"
 version = "0.3.7"
+source = "git+https://github.com/retep998/winapi-rs.git?branch=0.3#46aa861d606b21ded202a606b1351214ea899fa3"
+dependencies = [
+ "winapi-i686-pc-windows-gnu 0.4.0 (git+https://github.com/retep998/winapi-rs.git?branch=0.3)",
+ "winapi-x86_64-pc-windows-gnu 0.4.0 (git+https://github.com/retep998/winapi-rs.git?branch=0.3)",
+]
+
+[[package]]
+name = "winapi"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "winapi-i686-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi-x86_64-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "winapi-i686-pc-windows-gnu"
+version = "0.4.0"
+source = "git+https://github.com/retep998/winapi-rs.git?branch=0.3#46aa861d606b21ded202a606b1351214ea899fa3"
 
 [[package]]
 name = "winapi-i686-pc-windows-gnu"
@@ -775,6 +789,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "winapi 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "winapi-x86_64-pc-windows-gnu"
+version = "0.4.0"
+source = "git+https://github.com/retep998/winapi-rs.git?branch=0.3#46aa861d606b21ded202a606b1351214ea899fa3"
 
 [[package]]
 name = "winapi-x86_64-pc-windows-gnu"
@@ -915,9 +934,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum wayland-protocols 0.21.13 (registry+https://github.com/rust-lang/crates.io-index)" = "4afde2ea2a428eee6d7d2c8584fdbe8b82eee8b6c353e129a434cd6e07f42145"
 "checksum wayland-scanner 0.21.13 (registry+https://github.com/rust-lang/crates.io-index)" = "bf3828c568714507315ee425a9529edc4a4aa9901409e373e9e0027e7622b79e"
 "checksum wayland-sys 0.21.13 (registry+https://github.com/rust-lang/crates.io-index)" = "520ab0fd578017a0ee2206623ba9ef4afe5e8f23ca7b42f6acfba2f4e66b1628"
+"checksum winapi 0.3.7 (git+https://github.com/retep998/winapi-rs.git?branch=0.3)" = "<none>"
 "checksum winapi 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)" = "f10e386af2b13e47c89e7236a7a14a086791a2b88ebad6df9bf42040195cf770"
+"checksum winapi-i686-pc-windows-gnu 0.4.0 (git+https://github.com/retep998/winapi-rs.git?branch=0.3)" = "<none>"
 "checksum winapi-i686-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
 "checksum winapi-util 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7168bab6e1daee33b4557efd0e95d5ca70a03706d39fa5f3fe7a236f584b03c9"
+"checksum winapi-x86_64-pc-windows-gnu 0.4.0 (git+https://github.com/retep998/winapi-rs.git?branch=0.3)" = "<none>"
 "checksum winapi-x86_64-pc-windows-gnu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 "checksum winit 0.19.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d233301129ddd33260b47f76900b50e154b7254546e2edba0e5468a1a5fe4de3"
 "checksum x11-dl 2.18.3 (registry+https://github.com/rust-lang/crates.io-index)" = "940586acb859ea05c53971ac231685799a7ec1dee66ac0bccc0e6ad96e06b4e3"

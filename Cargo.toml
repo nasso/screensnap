@@ -11,4 +11,4 @@ custom_error = "1.6.0"
 glium = "0.25.1"
 
 [target.'cfg(windows)'.dependencies]
-winapi = "0.3.7"
+winapi = { git = "https://github.com/retep998/winapi-rs.git", branch = "0.3", features = ["winuser", "wingdi", "windef"] }
