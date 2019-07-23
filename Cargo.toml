@@ -1,0 +1,14 @@
+[package]
+name = "screenshot"
+version = "0.1.0"
+authors = ["nasso <nassomails@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+custom_error = "1.6.0"
+glium = "0.25.1"
+
+[target.'cfg(windows)'.dependencies]
+winapi = "0.3.7"
