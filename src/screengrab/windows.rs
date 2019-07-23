@@ -1,4 +1,4 @@
-use super::Image;
+use super::{Bounds, Screenshot};
 
 use std::{mem::size_of, ptr::null_mut};
 use winapi::{
@@ -17,29 +17,28 @@ use winapi::{
 };
 
 // take a screenshot
-pub fn snap() -> Image {
-    let rect = get_virtual_screen_bounds();
-    let ss = Screenshot::new(rect.0, rect.1, rect.2, rect.3);
+pub fn snap(bounds: Bounds) -> impl Screenshot {
+    let (x, y, w, h) = match bounds {
+        Bounds::FullScreen => get_full_screen_bounds(),
+        Bounds::Area(x, y, w, h) => (x, y, w, h),
+    };
 
-    Image {
-        dimensions: (ss.rect.2 as u32, ss.rect.3 as u32),
-        data: ss.data,
-    }
+    ScreenshotImpl::new(x as i32, y as i32, w as i32, h as i32)
 }
 
 // get the combined size of the all the monitors
-fn get_virtual_screen_bounds() -> (i32, i32, i32, i32) {
+fn get_full_screen_bounds() -> (u32, u32, u32, u32) {
     return (
-        unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) },
-        unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) },
-        unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) },
-        unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) },
+        unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) } as u32,
+        unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) } as u32,
+        unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) } as u32,
+        unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) } as u32,
     );
 }
 
 // screenshot taking implementation
 #[derive(Debug)]
-struct Screenshot {
+struct ScreenshotImpl {
     h_bitmap: HBITMAPWrapper,
     h_screen: HDCReleaseWrapper,
     h_dc: HDCWrapper,
@@ -49,8 +48,18 @@ struct Screenshot {
     data: Vec<u8>,
 }
 
-impl Screenshot {
-    fn new(x: i32, y: i32, w: i32, h: i32) -> Screenshot {
+impl Screenshot for ScreenshotImpl {
+    fn data(&self) -> &[u8] {
+        &self.data
+    }
+
+    fn dimensions(&self) -> (u32, u32) {
+        (self.rect.2 as u32, self.rect.3 as u32)
+    }
+}
+
+impl ScreenshotImpl {
+    fn new(x: i32, y: i32, w: i32, h: i32) -> ScreenshotImpl {
         let mut bi = BITMAPINFO {
             bmiHeader: BITMAPINFOHEADER {
                 biSize: size_of::<BITMAPINFOHEADER>() as u32,
@@ -98,7 +107,7 @@ impl Screenshot {
             pixel.swap(0, 2);
         }
 
-        Screenshot {
+        ScreenshotImpl {
             h_bitmap: h_bitmap.into(),
             h_screen: h_screen.into(),
             h_dc: h_dc.into(),

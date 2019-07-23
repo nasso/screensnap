@@ -1,4 +1,4 @@
-use super::screengrab;
+use super::screengrab::Screenshot;
 use custom_error::custom_error;
 use glium::{
     self,
@@ -54,7 +54,7 @@ struct Cropper {
 
 // where we do the cool stuff
 impl Cropper {
-    fn new(snap: screengrab::Image) -> Result<Cropper, CropperError> {
+    fn new(snap: impl Screenshot) -> Result<Cropper, CropperError> {
         let events_loop = EventsLoop::new();
 
         let display = Display::new(
@@ -64,7 +64,7 @@ impl Cropper {
                 .with_always_on_top(true)
                 .with_decorations(false)
                 .with_resizable(false)
-                .with_dimensions(snap.dimensions.into()),
+                .with_dimensions(snap.dimensions().into()),
             ContextBuilder::new(),
             &events_loop,
         )?;
@@ -80,7 +80,7 @@ impl Cropper {
             // create screenshot texture
             snap: SrgbTexture2d::new(
                 &display,
-                RawImage2d::from_raw_rgb(snap.data, snap.dimensions),
+                RawImage2d::from_raw_rgb(snap.data().into(), snap.dimensions()),
             )?,
 
             // create a fullscreen quad VBO
@@ -147,7 +147,7 @@ impl Cropper {
 }
 
 // "main" of the cropping part of the program
-pub fn apply(snap: screengrab::Image) -> Result<Option<(u64, u64, u64, u64)>, CropperError> {
+pub fn apply(snap: impl Screenshot) -> Result<Option<(u64, u64, u64, u64)>, CropperError> {
     // create a cropper
     let mut cropper = Cropper::new(snap)?;
 

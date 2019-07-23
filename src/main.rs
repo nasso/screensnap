@@ -9,7 +9,7 @@ custom_error! { ScreenshotError
 
 fn main() -> Result<(), ScreenshotError> {
     // get screenshot
-    let snap = screengrab::snap();
+    let snap = screengrab::snap(screengrab::Bounds::FullScreen);
 
     // crop the screenshot
     let _snap = cropper::apply(snap)?;
