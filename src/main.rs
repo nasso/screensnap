@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use custom_error::custom_error;
 
 mod cropper;
