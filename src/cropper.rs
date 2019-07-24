@@ -15,7 +15,7 @@ use glium::{
     index::{BufferCreationError as IboCreationError, IndexBuffer, PrimitiveType},
     program,
     program::{Program, ProgramChooserCreationError},
-    texture::{RawImage2d, SrgbTexture2d, TextureCreationError},
+    texture::{MipmapsOption, RawImage2d, SrgbTexture2d, TextureCreationError},
     uniform,
     vertex::{BufferCreationError as VboCreationError, VertexBuffer},
     Blend, Display, DrawError, DrawParameters, Surface, SwapBuffersError,
@@ -151,9 +151,10 @@ impl Cropper {
             animated_region: None,
             region_appear_time: None,
 
-            snap_tex: SrgbTexture2d::new(
+            snap_tex: SrgbTexture2d::with_mipmaps(
                 &self.display,
                 RawImage2d::from_raw_rgb(snap.data().into(), snap.dimensions()),
+                MipmapsOption::NoMipmap,
             )?,
             snap: snap,
         };
