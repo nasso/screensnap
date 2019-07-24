@@ -126,7 +126,7 @@ impl Cropper {
         })
     }
 
-    pub fn apply(&mut self, snap: impl Screenshot) -> Result<(), CropperError> {
+    pub fn apply(&mut self, snap: impl Screenshot) -> Result<bool, CropperError> {
         self.display
             .gl_window()
             .window()
@@ -162,6 +162,9 @@ impl Cropper {
         // becomes true whenever the window should close
         let mut closed = false;
 
+        // the value this function returns
+        let mut should_quit = false;
+
         // where the left mouse button was pressed
         let mut left_press: Option<(f64, f64)> = None;
 
@@ -195,7 +198,27 @@ impl Cropper {
             self.events_loop.poll_events(|e| match e {
                 // window events
                 Event::WindowEvent { event, .. } => match event {
-                    // close requested
+                    // kill process
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::Q),
+                                state: ElementState::Pressed,
+                                modifiers:
+                                    ModifiersState {
+                                        ctrl: true,
+                                        shift: true,
+                                        ..
+                                    },
+                                ..
+                            },
+                        ..
+                    } => {
+                        should_quit = true;
+                        closed = true
+                    }
+
+                    // cancel screenshot
                     WindowEvent::CloseRequested
                     | WindowEvent::KeyboardInput {
                         input:
@@ -277,7 +300,7 @@ impl Cropper {
             });
         }
 
-        Ok(())
+        Ok(should_quit)
     }
 
     fn render(

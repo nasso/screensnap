@@ -15,7 +15,7 @@ where
     }
 
     while unsafe { GetMessageW(&mut msg, null_mut(), WM_HOTKEY, WM_HOTKEY) } != 0 {
-        if !callback() {
+        if callback() {
             break;
         } else if consume_queue {
             // consume all hotkey events

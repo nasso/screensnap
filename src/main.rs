@@ -3,6 +3,7 @@ use custom_error::custom_error;
 mod cropper;
 mod focuser;
 mod hotkey;
+mod msgbox;
 mod screengrab;
 
 use cropper::Cropper;
@@ -18,11 +19,12 @@ fn main() -> Result<(), ScreenshotError> {
     hotkey::register(true, || {
         // get screenshot
         match cropper.apply(screengrab::snap()) {
-            Err(e) => eprintln!("{:?}", e),
-            _ => (),
+            Err(e) => {
+                msgbox::error(&format!("{:?}", e));
+                true
+            }
+            Ok(should_quit) => should_quit,
         }
-
-        true
     });
 
     Ok(())
