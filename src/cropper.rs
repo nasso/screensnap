@@ -49,6 +49,8 @@ struct CroppingContext<T> {
     snap: T,
     snap_tex: SrgbTexture2d,
     region: Option<Rectangle<f64>>,
+
+    animated_region: Option<Rectangle<f64>>,
 }
 
 // structure holding everything else we'll need
@@ -136,6 +138,7 @@ impl Cropper {
         let mut context = CroppingContext {
             delta: Default::default(),
             region: None,
+            animated_region: None,
 
             snap_tex: SrgbTexture2d::new(
                 &self.display,
@@ -207,6 +210,9 @@ impl Cropper {
                                 w: (px - x).abs(),
                                 h: (py - y).abs(),
                             });
+
+                            // disable animation
+                            context.animated_region = context.region;
                         } else {
                             match modifiers {
                                 ModifiersState { shift: true, .. } => {
@@ -263,6 +269,19 @@ impl Cropper {
         frame: &mut glium::Frame,
         ctx: &mut CroppingContext<impl Screenshot>,
     ) -> Result<(), CropperError> {
+        if let (Some(areg), Some(reg)) = (ctx.animated_region, ctx.region) {
+            let delta_s = ctx.delta.as_millis() as f64 / 1000.0;
+
+            ctx.animated_region = Some(Rectangle {
+                x: areg.x + (reg.x - areg.x) * delta_s * 20.0,
+                y: areg.y + (reg.y - areg.y) * delta_s * 20.0,
+                w: areg.w + (reg.w - areg.w) * delta_s * 20.0,
+                h: areg.h + (reg.h - areg.h) * delta_s * 20.0,
+            });
+        } else {
+            ctx.animated_region = ctx.region;
+        }
+
         let draw_params = DrawParameters {
             blend: Blend::alpha_blending(),
             ..Default::default()
@@ -286,15 +305,15 @@ impl Cropper {
         )?;
 
         // active region pass
-        if let Some(region) = ctx.region {
+        if let Some(areg) = ctx.animated_region {
             let uniforms = uniform! {
                 tex: &ctx.snap_tex,
                 opacity: 1.0f32,
                 bounds: [
-                    (region.x as f32) / (ctx.snap.dimensions().0 as f32),
-                    1.0 - (region.y as f32) / (ctx.snap.dimensions().1 as f32),
-                    (region.w as f32) / (ctx.snap.dimensions().0 as f32),
-                    -(region.h as f32) / (ctx.snap.dimensions().1 as f32)
+                    (areg.x as f32) / (ctx.snap.dimensions().0 as f32),
+                    1.0 - (areg.y as f32) / (ctx.snap.dimensions().1 as f32),
+                    (areg.w as f32) / (ctx.snap.dimensions().0 as f32),
+                    -(areg.h as f32) / (ctx.snap.dimensions().1 as f32)
                 ],
             };
 
