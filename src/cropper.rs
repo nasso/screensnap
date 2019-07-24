@@ -354,6 +354,8 @@ impl Cropper {
                 &uniforms,
                 &draw_params,
             )?;
+        } else {
+            ctx.region_appear_time = None;
         }
 
         Ok(())
