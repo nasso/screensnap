@@ -171,6 +171,9 @@ impl Cropper {
         // right now
         let mut now = Instant::now();
 
+        // empty the event queue
+        self.events_loop.poll_events(|_| ());
+
         // main loop
         while !closed {
             context.delta = now.elapsed();
@@ -198,6 +201,7 @@ impl Cropper {
                         input:
                             KeyboardInput {
                                 virtual_keycode: Some(VirtualKeyCode::Escape),
+                                state: ElementState::Pressed,
                                 ..
                             },
                         ..
