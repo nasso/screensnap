@@ -1,5 +1,5 @@
 [package]
-name = "screenshot"
+name = "screensnap"
 version = "0.1.0"
 authors = ["nasso <nassomails@gmail.com>"]
 edition = "2018"

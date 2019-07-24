@@ -609,7 +609,7 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "screenshot"
+name = "screensnap"
 version = "0.1.0"
 dependencies = [
  "custom_error 1.6.0 (registry+https://github.com/rust-lang/crates.io-index)",

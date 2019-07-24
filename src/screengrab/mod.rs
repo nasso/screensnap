@@ -27,12 +27,6 @@ impl<T: PartialEq + PartialOrd + Add<Output = T> + Copy + Clone> Rectangle<T> {
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub enum Bounds {
-    FullScreen,
-    Area(Rectangle<u32>),
-}
-
-#[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Window {
     pub bounds: Rectangle<u32>,
     pub content_bounds: Rectangle<u32>,

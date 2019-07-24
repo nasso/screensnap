@@ -1,4 +1,4 @@
-use super::{Bounds, Rectangle, Screenshot, Window};
+use super::{Rectangle, Screenshot, Window};
 
 use std::{
     mem::{size_of, MaybeUninit},
@@ -23,23 +23,8 @@ use winapi::{
 };
 
 // take a screenshot
-pub fn snap(bounds: Bounds) -> impl Screenshot {
-    let (x, y, w, h) = match bounds {
-        Bounds::FullScreen => get_full_screen_bounds(),
-        Bounds::Area(rect) => (rect.x as i32, rect.y as i32, rect.w as i32, rect.h as i32),
-    };
-
-    ScreenshotImpl::new(x, y, w, h)
-}
-
-// get the combined size of the all the monitors
-fn get_full_screen_bounds() -> (i32, i32, i32, i32) {
-    return (
-        unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) },
-        unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) },
-        unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) },
-        unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) },
-    );
+pub fn snap() -> impl Screenshot {
+    ScreenshotImpl::new()
 }
 
 // screenshot taking implementation
@@ -103,7 +88,12 @@ impl Screenshot for ScreenshotImpl {
 }
 
 impl ScreenshotImpl {
-    fn new(x: i32, y: i32, w: i32, h: i32) -> ScreenshotImpl {
+    fn new() -> ScreenshotImpl {
+        let x = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
+        let y = unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) };
+        let w = unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) };
+        let h = unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) };
+
         let mut bi = BITMAPINFO {
             bmiHeader: BITMAPINFOHEADER {
                 biSize: size_of::<BITMAPINFOHEADER>() as u32,
