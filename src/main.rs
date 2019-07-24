@@ -1,6 +1,7 @@
 use custom_error::custom_error;
 
 mod cropper;
+mod focuser;
 mod hotkey;
 mod screengrab;
 

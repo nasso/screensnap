@@ -1,5 +1,9 @@
-use super::screengrab::{Rectangle, Screenshot};
+use super::{
+    focuser,
+    screengrab::{Rectangle, Screenshot},
+};
 use custom_error::custom_error;
+use easer::functions::Easing;
 use glium::{
     self,
     backend::glutin::DisplayCreationError,
@@ -44,13 +48,15 @@ struct CropperPrograms {
 }
 
 struct CroppingContext<T> {
+    started: Instant,
     delta: Duration,
 
     snap: T,
     snap_tex: SrgbTexture2d,
-    region: Option<Rectangle<f64>>,
 
+    region: Option<Rectangle<f64>>,
     animated_region: Option<Rectangle<f64>>,
+    region_appear_time: Option<Instant>,
 }
 
 // structure holding everything else we'll need
@@ -135,10 +141,15 @@ impl Cropper {
             .set_position((0, 0).into());
         self.display.gl_window().window().show();
 
+        focuser::focus_current_window();
+
         let mut context = CroppingContext {
+            started: Instant::now(),
             delta: Default::default(),
+
             region: None,
             animated_region: None,
+            region_appear_time: None,
 
             snap_tex: SrgbTexture2d::new(
                 &self.display,
@@ -293,7 +304,12 @@ impl Cropper {
         // base pass
         let uniforms = uniform! {
             tex: &ctx.snap_tex,
-            opacity: 0.5f32,
+            opacity: easer::functions::Cubic::ease_out(
+                ctx.started.elapsed().as_millis().min(200) as f32,
+                1.0f32,
+                -0.5f32,
+                200.0f32
+            ),
         };
 
         frame.draw(
@@ -306,9 +322,18 @@ impl Cropper {
 
         // active region pass
         if let Some(areg) = ctx.animated_region {
+            if let None = ctx.region_appear_time {
+                ctx.region_appear_time = Some(Instant::now());
+            }
+
             let uniforms = uniform! {
                 tex: &ctx.snap_tex,
-                opacity: 1.0f32,
+                opacity: easer::functions::Cubic::ease_out(
+                    ctx.region_appear_time.unwrap().elapsed().as_millis().min(200) as f32,
+                    0.5f32,
+                    0.5f32,
+                    200.0f32
+                ),
                 bounds: [
                     (areg.x as f32) / (ctx.snap.dimensions().0 as f32),
                     1.0 - (areg.y as f32) / (ctx.snap.dimensions().1 as f32),
