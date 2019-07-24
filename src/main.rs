@@ -14,7 +14,7 @@ fn main() -> Result<(), ScreenshotError> {
     // create the cropper
     let mut cropper = Cropper::new()?;
 
-    hotkey::register(|| {
+    hotkey::register(true, || {
         // get screenshot
         match cropper.apply(screengrab::snap(screengrab::Bounds::FullScreen)) {
             Err(e) => eprintln!("{:?}", e),
