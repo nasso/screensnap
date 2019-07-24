@@ -1,11 +1,11 @@
-use super::screengrab::{Screenshot, Window};
+use super::screengrab::{Rectangle, Screenshot, Window};
 use custom_error::custom_error;
 use glium::{
     self,
     backend::glutin::DisplayCreationError,
     glutin::{
-        dpi::LogicalPosition, ContextBuilder, Event, EventsLoop, KeyboardInput, ModifiersState,
-        VirtualKeyCode, WindowBuilder, WindowEvent,
+        dpi::LogicalPosition, ContextBuilder, ElementState, Event, EventsLoop, KeyboardInput,
+        ModifiersState, MouseButton, VirtualKeyCode, WindowBuilder, WindowEvent,
     },
     implement_vertex,
     index::{BufferCreationError as IboCreationError, IndexBuffer, PrimitiveType},
@@ -47,7 +47,7 @@ struct CropperPrograms {
 struct Cropper<T> {
     snap: T,
 
-    hover_window: Option<Window>,
+    region: Option<Rectangle>,
     delta: Duration,
 
     snap_tex: SrgbTexture2d,
@@ -61,7 +61,7 @@ impl<T: Screenshot> Cropper<T> {
     fn new(snap: T, display: &Display) -> Result<Cropper<T>, CropperError> {
         // return struct
         Ok(Cropper {
-            hover_window: None,
+            region: None,
             delta: Default::default(),
 
             // create screenshot texture
@@ -133,15 +133,15 @@ impl<T: Screenshot> Cropper<T> {
         )?;
 
         // window bounds pass
-        if let Some(window) = self.hover_window {
+        if let Some(region) = self.region {
             let uniforms = uniform! {
                 tex: &self.snap_tex,
                 opacity: 1.0f32,
                 bounds: [
-                    (window.content_bounds.x as f32) / (self.snap.dimensions().0 as f32),
-                    1.0 - (window.content_bounds.y as f32) / (self.snap.dimensions().1 as f32),
-                    (window.content_bounds.w as f32) / (self.snap.dimensions().0 as f32),
-                    -(window.content_bounds.h as f32) / (self.snap.dimensions().1 as f32)
+                    (region.x as f32) / (self.snap.dimensions().0 as f32),
+                    1.0 - (region.y as f32) / (self.snap.dimensions().1 as f32),
+                    (region.w as f32) / (self.snap.dimensions().0 as f32),
+                    -(region.h as f32) / (self.snap.dimensions().1 as f32)
                 ],
             };
 
@@ -159,7 +159,7 @@ impl<T: Screenshot> Cropper<T> {
 }
 
 // "main" of the cropping part of the program
-pub fn apply(snap: impl Screenshot) -> Result<Option<(u64, u64, u64, u64)>, CropperError> {
+pub fn apply(snap: impl Screenshot) -> Result<(), CropperError> {
     let mut events_loop = EventsLoop::new();
 
     let display = Display::new(
@@ -215,7 +215,11 @@ pub fn apply(snap: impl Screenshot) -> Result<Option<(u64, u64, u64, u64)>, Crop
                             ..
                         },
                     ..
-                } => closed = true,
+                } => {
+                    // set region to None do cancel
+                    cropper.region = None;
+                    closed = true
+                }
 
                 // cursor moved
                 WindowEvent::CursorMoved {
@@ -224,14 +228,24 @@ pub fn apply(snap: impl Screenshot) -> Result<Option<(u64, u64, u64, u64)>, Crop
                     ..
                 } => match modifiers {
                     ModifiersState { shift: true, .. } => {
-                        cropper.hover_window = cropper
+                        cropper.region = cropper
                             .snap
                             .windows()
                             .into_iter()
                             .find(|w| w.content_bounds.contains(x as u32, y as u32))
-                            .copied()
+                            .map(|w| w.content_bounds)
                     }
-                    _ => cropper.hover_window = None,
+                    _ => cropper.region = None,
+                },
+
+                // mouse input
+                WindowEvent::MouseInput {
+                    button,
+                    state: ElementState::Released,
+                    ..
+                } => match button {
+                    MouseButton::Left => closed = true,
+                    _ => (),
                 },
 
                 // other window events
@@ -243,5 +257,10 @@ pub fn apply(snap: impl Screenshot) -> Result<Option<(u64, u64, u64, u64)>, Crop
         });
     }
 
-    Ok(None)
+    // copy to clipboard!
+    if let Some(region) = cropper.region {
+        cropper.snap.copy_to_clipboard(region);
+    }
+
+    Ok(())
 }

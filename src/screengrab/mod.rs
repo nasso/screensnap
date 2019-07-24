@@ -7,6 +7,7 @@ pub trait Screenshot {
     fn data(&self) -> &[u8];
     fn dimensions(&self) -> (u32, u32);
     fn windows(&self) -> &[Window];
+    fn copy_to_clipboard(&self, region: Rectangle);
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]

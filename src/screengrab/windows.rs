@@ -14,7 +14,8 @@ use winapi::{
             SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, SRCCOPY,
         },
         winuser::{
-            EnumWindows, GetDC, GetSystemMetrics, GetWindowInfo, IsWindowVisible, ReleaseDC,
+            CloseClipboard, EmptyClipboard, EnumWindows, GetDC, GetSystemMetrics, GetWindowInfo,
+            IsWindowVisible, OpenClipboard, ReleaseDC, SetClipboardData, CF_BITMAP,
             SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
             WINDOWINFO, WS_POPUP,
         },
@@ -65,6 +66,39 @@ impl Screenshot for ScreenshotImpl {
 
     fn windows(&self) -> &[Window] {
         &self.windows
+    }
+
+    fn copy_to_clipboard(&self, region: Rectangle) {
+        unsafe {
+            let crop = CreateCompatibleBitmap(self.h_screen.0, region.w as i32, region.h as i32);
+            let h_dc = CreateCompatibleDC(self.h_screen.0);
+
+            let old_obj = SelectObject(h_dc, crop as *mut c_void);
+            let old_obj_src = SelectObject(self.h_dc.0, self.h_bitmap.0 as *mut c_void);
+
+            BitBlt(
+                h_dc,
+                0,
+                0,
+                region.w as i32,
+                region.h as i32,
+                self.h_dc.0,
+                region.x as i32,
+                region.y as i32,
+                SRCCOPY,
+            );
+
+            SelectObject(h_dc, old_obj);
+            SelectObject(self.h_dc.0, old_obj_src);
+
+            OpenClipboard(null_mut());
+            EmptyClipboard();
+            SetClipboardData(CF_BITMAP, crop as *mut c_void);
+            CloseClipboard();
+
+            DeleteDC(h_dc);
+            DeleteObject(crop as *mut c_void);
+        }
     }
 }
 

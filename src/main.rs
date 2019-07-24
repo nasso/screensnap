@@ -12,7 +12,7 @@ fn main() -> Result<(), ScreenshotError> {
     let snap = screengrab::snap(screengrab::Bounds::FullScreen);
 
     // crop the screenshot
-    let _snap = cropper::apply(snap)?;
+    cropper::apply(snap)?;
 
     Ok(())
 }
