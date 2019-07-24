@@ -68,7 +68,7 @@ impl Screenshot for ScreenshotImpl {
         &self.windows
     }
 
-    fn copy_to_clipboard(&self, region: Rectangle) {
+    fn copy_to_clipboard(&self, region: Rectangle<u32>) {
         unsafe {
             let crop = CreateCompatibleBitmap(self.h_screen.0, region.w as i32, region.h as i32);
             let h_dc = CreateCompatibleDC(self.h_screen.0);

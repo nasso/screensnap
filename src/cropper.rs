@@ -1,4 +1,4 @@
-use super::screengrab::{Rectangle, Screenshot, Window};
+use super::screengrab::{Rectangle, Screenshot};
 use custom_error::custom_error;
 use glium::{
     self,
@@ -43,38 +43,44 @@ struct CropperPrograms {
     sub_quad_tex: Program,
 }
 
-// structure holding everything else we'll need
-struct Cropper<T> {
-    snap: T,
-
-    region: Option<Rectangle>,
+struct CroppingContext<T> {
     delta: Duration,
 
+    snap: T,
     snap_tex: SrgbTexture2d,
+    region: Option<Rectangle<f64>>,
+}
+
+// structure holding everything else we'll need
+pub struct Cropper {
+    events_loop: EventsLoop,
+    display: Display,
+
     vbo: VertexBuffer<Vertex>,
     index_buffer: IndexBuffer<u16>,
     programs: CropperPrograms,
 }
 
 // where we do the cool stuff
-impl<T: Screenshot> Cropper<T> {
-    fn new(snap: T, display: &Display) -> Result<Cropper<T>, CropperError> {
-        // return struct
+impl Cropper {
+    pub fn new() -> Result<Cropper, CropperError> {
+        let events_loop = EventsLoop::new();
+
+        let display = Display::new(
+            WindowBuilder::new()
+                .with_title("Screenshot")
+                .with_visibility(false)
+                .with_always_on_top(true)
+                .with_decorations(false)
+                .with_resizable(false),
+            ContextBuilder::new().with_vsync(true),
+            &events_loop,
+        )?;
+
         Ok(Cropper {
-            region: None,
-            delta: Default::default(),
-
-            // create screenshot texture
-            snap_tex: SrgbTexture2d::new(
-                display,
-                RawImage2d::from_raw_rgb(snap.data().into(), snap.dimensions()),
-            )?,
-
-            snap,
-
             // create a fullscreen quad VBO
             vbo: VertexBuffer::new(
-                display,
+                &display,
                 &[
                     Vertex { pos: [0.0, 0.0] },
                     Vertex { pos: [1.0, 0.0] },
@@ -85,31 +91,178 @@ impl<T: Screenshot> Cropper<T> {
 
             // indices for the VBO
             index_buffer: IndexBuffer::new(
-                display,
+                &display,
                 PrimitiveType::TriangleStrip,
                 &[0 as u16, 1, 2, 3],
             )?,
 
             // all the programs we need
             programs: CropperPrograms {
-                full_quad_tex: program!(display,
+                full_quad_tex: program!(&display,
                     140 => {
                         vertex: include_str!("shaders/full_quad_tex/140.vs"),
                         fragment: include_str!("shaders/full_quad_tex/140.fs"),
                     }
                 )?,
 
-                sub_quad_tex: program!(display,
+                sub_quad_tex: program!(&display,
                     140 => {
                         vertex: include_str!("shaders/sub_quad_tex/140.vs"),
                         fragment: include_str!("shaders/sub_quad_tex/140.fs"),
                     }
                 )?,
             },
+
+            events_loop,
+            display,
         })
     }
 
-    fn render(&mut self, frame: &mut glium::Frame) -> Result<(), CropperError> {
+    pub fn apply(&mut self, snap: impl Screenshot) -> Result<(), CropperError> {
+        self.display
+            .gl_window()
+            .window()
+            .set_max_dimensions(Some(snap.dimensions().into()));
+        self.display
+            .gl_window()
+            .window()
+            .set_min_dimensions(Some(snap.dimensions().into()));
+        self.display
+            .gl_window()
+            .window()
+            .set_position((0, 0).into());
+        self.display.gl_window().window().show();
+
+        let mut context = CroppingContext {
+            delta: Default::default(),
+            region: None,
+
+            snap_tex: SrgbTexture2d::new(
+                &self.display,
+                RawImage2d::from_raw_rgb(snap.data().into(), snap.dimensions()),
+            )?,
+            snap: snap,
+        };
+
+        // becomes true whenever the window should close
+        let mut closed = false;
+
+        // where the left mouse button was pressed
+        let mut left_press: Option<(f64, f64)> = None;
+
+        // tracks the position of the cursor
+        let mut cursor_pos = (0.0, 0.0);
+
+        // right now
+        let mut now = Instant::now();
+
+        // main loop
+        while !closed {
+            context.delta = now.elapsed();
+            now = Instant::now();
+
+            // create a frame
+            let mut frame = self.display.draw();
+
+            // store the result of the render
+            let render_result = self.render(&mut frame, &mut context);
+
+            // finish the frame first
+            frame.finish()?;
+
+            // then we can check the result
+            render_result?;
+
+            // handle events
+            self.events_loop.poll_events(|e| match e {
+                // window events
+                Event::WindowEvent { event, .. } => match event {
+                    // close requested
+                    WindowEvent::CloseRequested
+                    | WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::Escape),
+                                ..
+                            },
+                        ..
+                    } => {
+                        // set region to None do cancel
+                        context.region = None;
+                        closed = true
+                    }
+
+                    // cursor moved
+                    WindowEvent::CursorMoved {
+                        position: LogicalPosition { x, y },
+                        modifiers,
+                        ..
+                    } => {
+                        cursor_pos = (x, y);
+
+                        if let Some((px, py)) = left_press {
+                            context.region = Some(Rectangle {
+                                x: px.min(x),
+                                y: py.min(y),
+                                w: (px - x).abs(),
+                                h: (py - y).abs(),
+                            });
+                        } else {
+                            match modifiers {
+                                ModifiersState { shift: true, .. } => {
+                                    context.region = context
+                                        .snap
+                                        .windows()
+                                        .into_iter()
+                                        .find(|w| w.content_bounds.contains(x as u32, y as u32))
+                                        .map(|w| Rectangle {
+                                            x: w.content_bounds.x as f64,
+                                            y: w.content_bounds.y as f64,
+                                            w: w.content_bounds.w as f64,
+                                            h: w.content_bounds.h as f64,
+                                        })
+                                }
+                                _ => context.region = None,
+                            }
+                        }
+                    }
+
+                    // mouse input
+                    WindowEvent::MouseInput { button, state, .. } => match (button, state) {
+                        (MouseButton::Left, ElementState::Released) => closed = true,
+                        (MouseButton::Left, ElementState::Pressed) => left_press = Some(cursor_pos),
+                        _ => (),
+                    },
+
+                    // other window events
+                    _ => (),
+                },
+
+                // other events
+                _ => (),
+            });
+        }
+
+        self.display.gl_window().window().hide();
+
+        // copy to clipboard!
+        if let Some(region) = context.region {
+            context.snap.copy_to_clipboard(Rectangle {
+                x: region.x as u32,
+                y: region.y as u32,
+                w: region.w as u32,
+                h: region.h as u32,
+            });
+        }
+
+        Ok(())
+    }
+
+    fn render(
+        &mut self,
+        frame: &mut glium::Frame,
+        ctx: &mut CroppingContext<impl Screenshot>,
+    ) -> Result<(), CropperError> {
         let draw_params = DrawParameters {
             blend: Blend::alpha_blending(),
             ..Default::default()
@@ -120,7 +273,7 @@ impl<T: Screenshot> Cropper<T> {
 
         // base pass
         let uniforms = uniform! {
-            tex: &self.snap_tex,
+            tex: &ctx.snap_tex,
             opacity: 0.5f32,
         };
 
@@ -132,16 +285,16 @@ impl<T: Screenshot> Cropper<T> {
             &draw_params,
         )?;
 
-        // window bounds pass
-        if let Some(region) = self.region {
+        // active region pass
+        if let Some(region) = ctx.region {
             let uniforms = uniform! {
-                tex: &self.snap_tex,
+                tex: &ctx.snap_tex,
                 opacity: 1.0f32,
                 bounds: [
-                    (region.x as f32) / (self.snap.dimensions().0 as f32),
-                    1.0 - (region.y as f32) / (self.snap.dimensions().1 as f32),
-                    (region.w as f32) / (self.snap.dimensions().0 as f32),
-                    -(region.h as f32) / (self.snap.dimensions().1 as f32)
+                    (region.x as f32) / (ctx.snap.dimensions().0 as f32),
+                    1.0 - (region.y as f32) / (ctx.snap.dimensions().1 as f32),
+                    (region.w as f32) / (ctx.snap.dimensions().0 as f32),
+                    -(region.h as f32) / (ctx.snap.dimensions().1 as f32)
                 ],
             };
 
@@ -156,111 +309,4 @@ impl<T: Screenshot> Cropper<T> {
 
         Ok(())
     }
-}
-
-// "main" of the cropping part of the program
-pub fn apply(snap: impl Screenshot) -> Result<(), CropperError> {
-    let mut events_loop = EventsLoop::new();
-
-    let display = Display::new(
-        WindowBuilder::new()
-            .with_title("Some test")
-            .with_visibility(false)
-            .with_always_on_top(true)
-            .with_decorations(false)
-            .with_resizable(false)
-            .with_dimensions(snap.dimensions().into()),
-        ContextBuilder::new().with_vsync(true),
-        &events_loop,
-    )?;
-
-    display.gl_window().window().set_position((0, 0).into());
-    display.gl_window().window().show();
-
-    // create a cropper
-    let mut cropper = Cropper::new(snap, &display)?;
-
-    // becomes true whenever the window should close
-    let mut closed = false;
-
-    let mut now = Instant::now();
-
-    // main loop
-    while !closed {
-        cropper.delta = now.elapsed();
-        now = Instant::now();
-
-        // create a frame
-        let mut frame = display.draw();
-
-        // store the result of the render
-        let render_result = cropper.render(&mut frame);
-
-        // finish the frame first
-        frame.finish()?;
-
-        // then we can check the result
-        render_result?;
-
-        // handle events
-        events_loop.poll_events(|e| match e {
-            // window events
-            Event::WindowEvent { event, .. } => match event {
-                // close requested
-                WindowEvent::CloseRequested
-                | WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            virtual_keycode: Some(VirtualKeyCode::Escape),
-                            ..
-                        },
-                    ..
-                } => {
-                    // set region to None do cancel
-                    cropper.region = None;
-                    closed = true
-                }
-
-                // cursor moved
-                WindowEvent::CursorMoved {
-                    position: LogicalPosition { x, y },
-                    modifiers,
-                    ..
-                } => match modifiers {
-                    ModifiersState { shift: true, .. } => {
-                        cropper.region = cropper
-                            .snap
-                            .windows()
-                            .into_iter()
-                            .find(|w| w.content_bounds.contains(x as u32, y as u32))
-                            .map(|w| w.content_bounds)
-                    }
-                    _ => cropper.region = None,
-                },
-
-                // mouse input
-                WindowEvent::MouseInput {
-                    button,
-                    state: ElementState::Released,
-                    ..
-                } => match button {
-                    MouseButton::Left => closed = true,
-                    _ => (),
-                },
-
-                // other window events
-                _ => (),
-            },
-
-            // other events
-            _ => (),
-        });
-    }
-
-    // copy to clipboard!
-    if let Some(region) = cropper.region {
-        cropper.snap.copy_to_clipboard(region);
-    }
-
-    Ok(())
 }

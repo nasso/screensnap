@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 #[cfg_attr(windows, path = "windows.rs")]
 mod os;
 
@@ -7,19 +9,19 @@ pub trait Screenshot {
     fn data(&self) -> &[u8];
     fn dimensions(&self) -> (u32, u32);
     fn windows(&self) -> &[Window];
-    fn copy_to_clipboard(&self, region: Rectangle);
+    fn copy_to_clipboard(&self, region: Rectangle<u32>);
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub struct Rectangle {
-    pub x: u32,
-    pub y: u32,
-    pub w: u32,
-    pub h: u32,
+pub struct Rectangle<T: PartialEq + PartialOrd + Add<Output = T> + Copy + Clone> {
+    pub x: T,
+    pub y: T,
+    pub w: T,
+    pub h: T,
 }
 
-impl Rectangle {
-    pub fn contains<T: PartialOrd<u32>>(&self, x: T, y: T) -> bool {
+impl<T: PartialEq + PartialOrd + Add<Output = T> + Copy + Clone> Rectangle<T> {
+    pub fn contains<U: PartialOrd<T>>(&self, x: U, y: U) -> bool {
         x >= self.x && y >= self.y && x <= (self.x + self.w) && y <= (self.y + self.h)
     }
 }
@@ -27,11 +29,11 @@ impl Rectangle {
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Bounds {
     FullScreen,
-    Area(Rectangle),
+    Area(Rectangle<u32>),
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Window {
-    pub bounds: Rectangle,
-    pub content_bounds: Rectangle,
+    pub bounds: Rectangle<u32>,
+    pub content_bounds: Rectangle<u32>,
 }
