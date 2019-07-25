@@ -259,12 +259,12 @@ impl Cropper {
                                         .snap
                                         .windows
                                         .iter()
-                                        .find(|w| w.content_bounds.contains(x as u32, y as u32))
+                                        .find(|w| w.bounds.contains(x as u32, y as u32))
                                         .map(|w| Rectangle {
-                                            x: w.content_bounds.x as f64,
-                                            y: w.content_bounds.y as f64,
-                                            w: w.content_bounds.w as f64,
-                                            h: w.content_bounds.h as f64,
+                                            x: w.bounds.x as f64,
+                                            y: w.bounds.y as f64,
+                                            w: w.bounds.w as f64,
+                                            h: w.bounds.h as f64,
                                         })
                                 }
                                 _ => context.region = None,

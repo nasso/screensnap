@@ -12,20 +12,9 @@ pub struct Screenshot {
     pub windows: Vec<Window>,
 }
 
-impl Screenshot {
-    pub fn take() -> Self {
-        os::take_screenshot()
-    }
-
-    pub fn copy_to_clipboard(&self, region: Rectangle<u32>) {
-        os::copy_to_clipboard(self, region);
-    }
-}
-
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug)]
 pub struct Window {
     pub bounds: Rectangle<u32>,
-    pub content_bounds: Rectangle<u32>,
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
