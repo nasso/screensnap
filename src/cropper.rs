@@ -47,11 +47,11 @@ struct CropperPrograms {
     sub_quad_tex: Program,
 }
 
-struct CroppingContext<T> {
+struct CroppingContext {
     started: Instant,
     delta: Duration,
 
-    snap: T,
+    snap: Screenshot,
     snap_tex: SrgbTexture2d,
 
     region: Option<Rectangle<f64>>,
@@ -126,15 +126,15 @@ impl Cropper {
         })
     }
 
-    pub fn apply(&mut self, snap: impl Screenshot) -> Result<bool, CropperError> {
+    pub fn apply(&mut self, snap: Screenshot) -> Result<bool, CropperError> {
         self.display
             .gl_window()
             .window()
-            .set_max_dimensions(Some(snap.dimensions().into()));
+            .set_max_dimensions(Some(snap.dimensions.into()));
         self.display
             .gl_window()
             .window()
-            .set_min_dimensions(Some(snap.dimensions().into()));
+            .set_min_dimensions(Some(snap.dimensions.into()));
         self.display
             .gl_window()
             .window()
@@ -153,7 +153,7 @@ impl Cropper {
 
             snap_tex: SrgbTexture2d::with_mipmaps(
                 &self.display,
-                RawImage2d::from_raw_rgb(snap.data().into(), snap.dimensions()),
+                RawImage2d::from_raw_rgb(snap.data.clone(), snap.dimensions),
                 MipmapsOption::NoMipmap,
             )?,
             snap: snap,
@@ -257,8 +257,8 @@ impl Cropper {
                                 ModifiersState { shift: true, .. } => {
                                     context.region = context
                                         .snap
-                                        .windows()
-                                        .into_iter()
+                                        .windows
+                                        .iter()
                                         .find(|w| w.content_bounds.contains(x as u32, y as u32))
                                         .map(|w| Rectangle {
                                             x: w.content_bounds.x as f64,
@@ -306,7 +306,7 @@ impl Cropper {
     fn render(
         &mut self,
         frame: &mut glium::Frame,
-        ctx: &mut CroppingContext<impl Screenshot>,
+        ctx: &mut CroppingContext,
     ) -> Result<(), CropperError> {
         if let (Some(areg), Some(reg)) = (ctx.animated_region, ctx.region) {
             let delta_s = ctx.delta.as_millis() as f64 / 1000.0;
@@ -363,10 +363,10 @@ impl Cropper {
                     200.0f32
                 ),
                 bounds: [
-                    (areg.x as f32) / (ctx.snap.dimensions().0 as f32),
-                    1.0 - (areg.y as f32) / (ctx.snap.dimensions().1 as f32),
-                    (areg.w as f32) / (ctx.snap.dimensions().0 as f32),
-                    -(areg.h as f32) / (ctx.snap.dimensions().1 as f32)
+                    (areg.x as f32) / (ctx.snap.dimensions.0 as f32),
+                    1.0 - (areg.y as f32) / (ctx.snap.dimensions.1 as f32),
+                    (areg.w as f32) / (ctx.snap.dimensions.0 as f32),
+                    -(areg.h as f32) / (ctx.snap.dimensions.1 as f32)
                 ],
             };
 
