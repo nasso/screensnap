@@ -1,4 +1,4 @@
-use std::ops::Add;
+use num_traits::Num;
 
 #[cfg_attr(windows, path = "windows.rs")]
 mod os;
@@ -18,14 +18,14 @@ pub struct Window {
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub struct Rectangle<T: PartialEq + PartialOrd + Add<Output = T> + Copy + Clone> {
+pub struct Rectangle<T: Num> {
     pub x: T,
     pub y: T,
     pub w: T,
     pub h: T,
 }
 
-impl<T: PartialEq + PartialOrd + Add<Output = T> + Copy + Clone> Rectangle<T> {
+impl<T: Num + Copy> Rectangle<T> {
     pub fn contains<U: PartialOrd<T>>(&self, x: U, y: U) -> bool {
         x >= self.x && y >= self.y && x <= (self.x + self.w) && y <= (self.y + self.h)
     }

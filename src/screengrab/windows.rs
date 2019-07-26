@@ -33,6 +33,7 @@ pub struct OsScreenshot {
 
 impl Screenshot {
     pub fn take() -> Self {
+        // get virtual screen bounds (covers all monitors)
         let x = unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) };
         let y = unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) };
         let w = unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) };

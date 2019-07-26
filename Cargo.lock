@@ -615,6 +615,7 @@ dependencies = [
  "custom_error 1.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "easer 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "glium 0.25.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num-traits 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.7 (git+https://github.com/retep998/winapi-rs.git?branch=0.3)",
 ]
 

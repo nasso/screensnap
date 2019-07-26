@@ -141,6 +141,8 @@ impl Cropper {
             .set_position((0, 0).into());
         self.display.gl_window().window().show();
 
+        // glutin doesn't let us bring the window to the foreground.
+        // well, glutin, im doing it anyway.
         focuser::focus_current_window();
 
         let mut context = CroppingContext {
