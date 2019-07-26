@@ -130,15 +130,15 @@ impl Cropper {
         self.display
             .gl_window()
             .window()
-            .set_max_dimensions(Some(snap.dimensions.into()));
+            .set_max_dimensions(Some((snap.bounds.w as u32, snap.bounds.h as u32).into()));
         self.display
             .gl_window()
             .window()
-            .set_min_dimensions(Some(snap.dimensions.into()));
+            .set_min_dimensions(Some((snap.bounds.w as u32, snap.bounds.h as u32).into()));
         self.display
             .gl_window()
             .window()
-            .set_position((0, 0).into());
+            .set_position((snap.bounds.x, snap.bounds.y).into());
         self.display.gl_window().window().show();
 
         // glutin doesn't let us bring the window to the foreground.
@@ -155,7 +155,10 @@ impl Cropper {
 
             snap_tex: SrgbTexture2d::with_mipmaps(
                 &self.display,
-                RawImage2d::from_raw_rgb(snap.data.clone(), snap.dimensions),
+                RawImage2d::from_raw_rgb(
+                    snap.data.clone(),
+                    (snap.bounds.w as u32, snap.bounds.h as u32),
+                ),
                 MipmapsOption::NoMipmap,
             )?,
             snap: snap,
@@ -261,7 +264,7 @@ impl Cropper {
                                         .snap
                                         .windows
                                         .iter()
-                                        .find(|w| w.bounds.contains(x as u32, y as u32))
+                                        .find(|w| w.bounds.contains(x as i32, y as i32))
                                         .map(|w| Rectangle {
                                             x: w.bounds.x as f64,
                                             y: w.bounds.y as f64,
@@ -365,10 +368,10 @@ impl Cropper {
                     200.0f32
                 ),
                 bounds: [
-                    (areg.x as f32) / (ctx.snap.dimensions.0 as f32),
-                    1.0 - (areg.y as f32) / (ctx.snap.dimensions.1 as f32),
-                    (areg.w as f32) / (ctx.snap.dimensions.0 as f32),
-                    -(areg.h as f32) / (ctx.snap.dimensions.1 as f32)
+                    (areg.x as f32) / (ctx.snap.bounds.w as f32),
+                    1.0 - (areg.y as f32) / (ctx.snap.bounds.h as f32),
+                    (areg.w as f32) / (ctx.snap.bounds.w as f32),
+                    -(areg.h as f32) / (ctx.snap.bounds.h as f32)
                 ],
             };
 

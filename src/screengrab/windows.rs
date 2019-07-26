@@ -1,7 +1,9 @@
 use super::{Rectangle, Screenshot, Window};
 
 use std::{
+    ffi::OsString,
     mem::{size_of, zeroed},
+    os::windows::prelude::*,
     ptr::null_mut,
 };
 use winapi::{
@@ -16,7 +18,7 @@ use winapi::{
         },
         winuser::{
             CloseClipboard, EmptyClipboard, EnumWindows, GetDC, GetSystemMetrics, GetWindowInfo,
-            IsWindowVisible, OpenClipboard, ReleaseDC, SetClipboardData, CF_BITMAP,
+            GetWindowTextW, IsWindowVisible, OpenClipboard, ReleaseDC, SetClipboardData, CF_BITMAP,
             SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
             WINDOWINFO, WS_POPUP,
         },
@@ -87,16 +89,26 @@ impl Screenshot {
         }
 
         // get all windows now
-        let mut windows = Vec::new();
+        struct ProcCallbackData {
+            x: i32,
+            y: i32,
+            windows: Vec<Window>,
+        }
+
+        let mut callback_data = ProcCallbackData {
+            x,
+            y,
+            windows: Vec::new(),
+        };
 
         // function that iterates over windows
         pub extern "system" fn enum_windows_proc_callback(wnd: HWND, p: LPARAM) -> BOOL {
             if unsafe { IsWindowVisible(wnd) } != 0 {
                 let mut info: WINDOWINFO = unsafe { zeroed() };
+                let mut bounds: RECT = unsafe { zeroed() };
+                let mut title: Vec<u16> = Vec::with_capacity(128);
 
                 info.cbSize = size_of::<WINDOWINFO>() as u32;
-
-                let mut bounds: RECT = unsafe { zeroed() };
 
                 unsafe {
                     GetWindowInfo(wnd, &mut info);
@@ -106,19 +118,26 @@ impl Screenshot {
                         &mut bounds as *mut _ as *mut c_void,
                         size_of::<RECT>() as u32,
                     );
+                    let len = GetWindowTextW(wnd, title.as_mut_ptr(), 128);
+                    title.set_len(len as usize);
                 }
+
+                let title = match OsString::from_wide(&title[..]).into_string() {
+                    Ok(s) => s,
+                    _ => String::new(),
+                };
 
                 // ignore WS_POPUP windows
                 if info.dwStyle & WS_POPUP == 0 {
-                    let windows = unsafe { (p as *mut Vec<_>).as_mut() }.unwrap();
+                    let callback_data = unsafe { (p as *mut ProcCallbackData).as_mut() }.unwrap();
 
-                    windows.push(Window {
-
+                    callback_data.windows.push(Window {
+                        title,
                         bounds: Rectangle {
-                            x: bounds.left as u32,
-                            y: bounds.top as u32,
-                            w: (bounds.right - bounds.left) as u32,
-                            h: (bounds.bottom - bounds.top) as u32,
+                            x: bounds.left - callback_data.x,
+                            y: bounds.top - callback_data.y,
+                            w: (bounds.right - bounds.left),
+                            h: (bounds.bottom - bounds.top),
                         },
                     });
                 }
@@ -130,7 +149,7 @@ impl Screenshot {
         unsafe {
             EnumWindows(
                 Some(enum_windows_proc_callback),
-                &mut windows as *mut Vec<_> as LPARAM,
+                &mut callback_data as *mut ProcCallbackData as LPARAM,
             );
         }
 
@@ -141,8 +160,8 @@ impl Screenshot {
                 h_dc: h_dc.into(),
             },
 
-            dimensions: (w as u32, h as u32),
-            windows,
+            bounds: Rectangle { x, y, w, h },
+            windows: callback_data.windows,
             data,
         }
     }

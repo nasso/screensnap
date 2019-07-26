@@ -8,13 +8,14 @@ pub struct Screenshot {
     os: os::OsScreenshot,
 
     pub data: Vec<u8>,
-    pub dimensions: (u32, u32),
+    pub bounds: Rectangle<i32>,
     pub windows: Vec<Window>,
 }
 
 #[derive(Debug)]
 pub struct Window {
-    pub bounds: Rectangle<u32>,
+    pub title: String,
+    pub bounds: Rectangle<i32>,
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
