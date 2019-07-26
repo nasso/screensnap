@@ -19,10 +19,12 @@ use winapi::{
             SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, SRCCOPY,
         },
         winuser::{
-            CloseClipboard, EmptyClipboard, EnumWindows, GetDC, GetSystemMetrics, GetWindowInfo,
-            GetWindowTextW, IsWindowVisible, OpenClipboard, ReleaseDC, SetClipboardData, CF_BITMAP,
+            IsIconic,
+            GetTitleBarInfo, STATE_SYSTEM_INVISIBLE, TITLEBARINFO,
+            CloseClipboard, EmptyClipboard, EnumWindows, GetAncestor, GetDC,
+            GetLastActivePopup, GetSystemMetrics, GetWindowTextW, IsWindowVisible,
+            OpenClipboard, ReleaseDC, SetClipboardData, CF_BITMAP, GA_ROOTOWNER,
             SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
-            WINDOWINFO, WS_POPUP,
         },
     },
 };
@@ -42,6 +44,12 @@ impl Screenshot {
         let y = unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) };
         let w = unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) };
         let h = unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) };
+
+        // Add a newline
+        if cfg!(debug_assertions) {
+            println!("================================");
+            println!("Virtual screen bounds: {}, {}, {}, {}", x, y, w, h);
+        }
 
         let mut bi = BITMAPINFO {
             bmiHeader: BITMAPINFOHEADER {
@@ -105,53 +113,124 @@ impl Screenshot {
 
         // function that iterates over windows
         pub extern "system" fn enum_windows_proc_callback(wnd: HWND, p: LPARAM) -> BOOL {
-            if unsafe { IsWindowVisible(wnd) } != 0 {
-                let mut info: WINDOWINFO = unsafe { zeroed() };
-                let mut bounds: RECT = unsafe { zeroed() };
+            // ignore invisible windows
+            if unsafe { IsWindowVisible(wnd) } == 0 {
+                return 1;
+            }
+
+            // ignore minimized windows
+            if unsafe { IsIconic(wnd) } != 0 {
+                return 1;
+            }
+
+            // ignore windows in other virtual desktops
+            unsafe {
                 let mut cloaked = 0u32;
-                let mut title: Vec<u16> = Vec::with_capacity(128);
 
-                info.cbSize = size_of::<WINDOWINFO>() as u32;
+                DwmGetWindowAttribute(
+                    wnd,
+                    DWMWA_CLOAKED,
+                    &mut cloaked as *mut u32 as *mut c_void,
+                    size_of::<u32>() as u32,
+                );
 
-                unsafe {
-                    GetWindowInfo(wnd, &mut info);
-                    DwmGetWindowAttribute(
-                        wnd,
-                        DWMWA_EXTENDED_FRAME_BOUNDS,
-                        &mut bounds as *mut _ as *mut c_void,
-                        size_of::<RECT>() as u32,
-                    );
-                    DwmGetWindowAttribute(
-                        wnd,
-                        DWMWA_CLOAKED,
-                        &mut cloaked as *mut u32 as *mut c_void,
-                        size_of::<u32>() as u32,
-                    );
-                    let len = GetWindowTextW(wnd, title.as_mut_ptr(), 128);
-                    title.set_len(len as usize);
-                }
-
-                let title = match OsString::from_wide(&title[..]).into_string() {
-                    Ok(s) => s,
-                    _ => String::new(),
-                };
-
-                // ignore WS_POPUP windows and windows
-                if info.dwStyle & WS_POPUP == 0 && cloaked & DWM_CLOAKED_SHELL == 0 {
-                    let callback_data = unsafe { (p as *mut ProcCallbackData).as_mut() }.unwrap();
-
-                    callback_data.windows.push(Window {
-                        title,
-                        bounds: Rectangle {
-                            x: bounds.left - callback_data.x,
-                            y: bounds.top - callback_data.y,
-                            w: (bounds.right - bounds.left),
-                            h: (bounds.bottom - bounds.top),
-                        },
-                    });
+                // windows in other virtual desktops have the DWM_CLOAKED_SHELL bit set
+                if cloaked & DWM_CLOAKED_SHELL != 0 {
+                    return 1;
                 }
             }
 
+            // https://stackoverflow.com/questions/7277366
+            {
+                let mut wnd_walk = null_mut();
+
+                // Start at the root owner
+                let mut wnd_try = unsafe { GetAncestor(wnd, GA_ROOTOWNER) };
+
+                // See if we are the last active visible popup
+                while wnd_try != wnd_walk {
+                    wnd_walk = wnd_try;
+                    wnd_try = unsafe { GetLastActivePopup(wnd_walk) };
+
+                    if unsafe { IsWindowVisible(wnd_try) } != 0 {
+                        break;
+                    }
+                }
+
+                if wnd_walk != wnd {
+                    return 1;
+                }
+
+                // remove task tray programs and "Program Manager"
+                let mut ti: TITLEBARINFO = unsafe { zeroed() };
+                ti.cbSize = size_of::<TITLEBARINFO>() as u32;
+
+                unsafe {
+                    GetTitleBarInfo(wnd, &mut ti);
+                }
+
+                if ti.rgstate[0] & STATE_SYSTEM_INVISIBLE != 0 {
+                    return 1;
+                }
+            }
+
+            // get the window title
+            let title = unsafe {
+                let mut buf = Vec::with_capacity(128);
+
+                let len = GetWindowTextW(wnd, buf.as_mut_ptr(), 128);
+                buf.set_len(len as usize);
+
+                match OsString::from_wide(&buf[..]).into_string() {
+                    Ok(s) => s,
+                    _ => String::new(),
+                }
+            };
+
+            // get the window bounds
+            let bounds = unsafe {
+                let mut rect: RECT = zeroed();
+
+                DwmGetWindowAttribute(
+                    wnd,
+                    DWMWA_EXTENDED_FRAME_BOUNDS,
+                    &mut rect as *mut _ as *mut c_void,
+                    size_of::<RECT>() as u32,
+                );
+
+                rect
+            };
+
+            // get the ProcCallbackData struct from the pointer
+            let callback_data = unsafe { (p as *mut ProcCallbackData).as_mut() }.unwrap();
+
+            // print information about it for debug purposes
+            if cfg!(debug_assertions) {
+                println!("Window {:?}:", wnd);
+                println!("  Title: {}", title);
+                println!(
+                    "  Bounds: {:?}",
+                    Rectangle {
+                        x: bounds.left - callback_data.x,
+                        y: bounds.top - callback_data.y,
+                        w: (bounds.right - bounds.left),
+                        h: (bounds.bottom - bounds.top),
+                    }
+                );
+            }
+
+            // add the window to the list
+            callback_data.windows.push(Window {
+                title,
+                bounds: Rectangle {
+                    x: bounds.left - callback_data.x,
+                    y: bounds.top - callback_data.y,
+                    w: (bounds.right - bounds.left),
+                    h: (bounds.bottom - bounds.top),
+                },
+            });
+
+            // return 1 to get more windows!
             1
         }
 
