@@ -11,7 +11,9 @@ use winapi::{
     shared::minwindef::{BOOL, LPARAM},
     shared::windef::{HBITMAP, HDC, HWND, RECT},
     um::{
-        dwmapi::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS},
+        dwmapi::{
+            DwmGetWindowAttribute, DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS, DWM_CLOAKED_SHELL,
+        },
         wingdi::{
             BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits,
             SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, SRCCOPY,
@@ -106,6 +108,7 @@ impl Screenshot {
             if unsafe { IsWindowVisible(wnd) } != 0 {
                 let mut info: WINDOWINFO = unsafe { zeroed() };
                 let mut bounds: RECT = unsafe { zeroed() };
+                let mut cloaked = 0u32;
                 let mut title: Vec<u16> = Vec::with_capacity(128);
 
                 info.cbSize = size_of::<WINDOWINFO>() as u32;
@@ -118,6 +121,12 @@ impl Screenshot {
                         &mut bounds as *mut _ as *mut c_void,
                         size_of::<RECT>() as u32,
                     );
+                    DwmGetWindowAttribute(
+                        wnd,
+                        DWMWA_CLOAKED,
+                        &mut cloaked as *mut u32 as *mut c_void,
+                        size_of::<u32>() as u32,
+                    );
                     let len = GetWindowTextW(wnd, title.as_mut_ptr(), 128);
                     title.set_len(len as usize);
                 }
@@ -127,8 +136,8 @@ impl Screenshot {
                     _ => String::new(),
                 };
 
-                // ignore WS_POPUP windows
-                if info.dwStyle & WS_POPUP == 0 {
+                // ignore WS_POPUP windows and windows
+                if info.dwStyle & WS_POPUP == 0 && cloaked & DWM_CLOAKED_SHELL == 0 {
                     let callback_data = unsafe { (p as *mut ProcCallbackData).as_mut() }.unwrap();
 
                     callback_data.windows.push(Window {
