@@ -610,7 +610,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "screensnap"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "custom_error 1.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "easer 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
