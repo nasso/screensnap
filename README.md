@@ -4,6 +4,24 @@ A simple screenshooting program written in Rust.
 Currently only supports Windows; PRs are welcome to add support for other
 platforms.
 
+## Usage
+
+Just run the executable. As of writing, no command line arguments are needed.
+
+While the process is running, it waits for you to press the `Print Screen` key.
+It doesn't do anything else (besides setting up the window and OpenGL context so
+that they're ready as soon as you press the `Print Screen` key, but that only
+happens once at startup).
+
+When you press `Print Screen`, your screen will darken. This is the `screensnap`
+cropping window. You can select a rectangular area by clicking and dragging with
+the left click of the mouse. Alternatively, holding `shift` will allow you to
+crop the screenshot to a window of your choice.
+
+As soon as you release, the cropping window closes, and the area you've selected
+gets copied to your clipboard. Most softwares support pasting images directly
+from the clipboard.
+
 ## Key bindings and keystrokes
 
 ### System-wide
