@@ -16,6 +16,15 @@ custom_error! { ScreenshotError
 }
 
 fn main() -> Result<(), ScreenshotError> {
+    // set the process to be DPI unaware
+    if cfg!(windows) {
+        unsafe {
+            winapi::um::shellscalingapi::SetProcessDpiAwareness(
+                winapi::um::shellscalingapi::PROCESS_DPI_UNAWARE,
+            );
+        }
+    }
+
     // create the cropper
     let mut cropper = Cropper::new()?;
 

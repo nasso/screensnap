@@ -13,4 +13,4 @@ glium = "0.25.1"
 easer = "0.2.1"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { git = "https://github.com/nasso/winapi-rs.git", branch = "0.3", features = ["winuser", "wingdi", "windef", "dwmapi"] }
+winapi = { git = "https://github.com/nasso/winapi-rs.git", branch = "0.3", features = ["winuser", "wingdi", "windef", "dwmapi", "shellscalingapi"] }
