@@ -19,12 +19,11 @@ use winapi::{
             SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, SRCCOPY,
         },
         winuser::{
-            IsIconic,
-            GetTitleBarInfo, STATE_SYSTEM_INVISIBLE, TITLEBARINFO,
-            CloseClipboard, EmptyClipboard, EnumWindows, GetAncestor, GetDC,
-            GetLastActivePopup, GetSystemMetrics, GetWindowTextW, IsWindowVisible,
+            CloseClipboard, EmptyClipboard, EnumWindows, GetAncestor, GetDC, GetLastActivePopup,
+            GetSystemMetrics, GetTitleBarInfo, GetWindowTextW, IsIconic, IsWindowVisible,
             OpenClipboard, ReleaseDC, SetClipboardData, CF_BITMAP, GA_ROOTOWNER,
             SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
+            STATE_SYSTEM_INVISIBLE, TITLEBARINFO,
         },
     },
 };
