@@ -43,15 +43,15 @@ Key/keystroke  | Action
 
 ## Changelog
 
+### next release... (`master` branch)
+- feat: support for higher DPI settings
+
 ### v1.1.0
-- Improvement: smarter window filters (can now crop screenshots to more kinds of
-    windows, e.g. [Telegram Desktop](
-    https://github.com/telegramdesktop/tdesktop)).
-- Fix: better support for Windows 10's virtual desktops
-- Fix: better support for multiple monitor setups
-- Change: window screenshots now contain the non-client area
-- Internal: Refactor the `screengrab` module
-- Internal: Use the `num-traits` crate
+- feat: smarter window filters (can now crop to more kinds of windows, e.g.
+    [Telegram Desktop](https://github.com/telegramdesktop/tdesktop)).
+- feat: window screenshots now contain the non-client area
+- fix: windows in other virtual desktops being "visible" to screensnap
+- fix: weird behavior when the main monitor isn't the upper-left one
 
 ### v1.0.0
 - Initial release
