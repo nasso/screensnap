@@ -4,6 +4,10 @@ A simple screenshooting program written in Rust.
 Currently only supports Windows; PRs are welcome to add support for other
 platforms.
 
+## IF YOU'RE ON WINDOWS 10 YOU PROBABLY DON'T NEED THIS.
+
+Try `WINDOWS KEY + SHIFT + S`.
+
 ## Usage
 
 Just run the executable. As of writing, no command line arguments are needed.
